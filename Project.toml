@@ -1,0 +1,13 @@
+name = "Sorotoki"
+uuid = "04c30648-6c40-4e8b-b2ed-719511d26c69"
+authors = ["Brandon J Caasenbrood"]
+version = "0.1.0"
+
+[compat]
+julia = "1.8"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
