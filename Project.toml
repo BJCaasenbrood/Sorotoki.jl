@@ -3,6 +3,11 @@ uuid = "04c30648-6c40-4e8b-b2ed-719511d26c69"
 authors = ["Brandon J Caasenbrood"]
 version = "0.1.0"
 
+[deps]
+Crayons = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
 [compat]
 julia = "1.8"
 
