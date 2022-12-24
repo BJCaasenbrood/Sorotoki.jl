@@ -6,3 +6,4 @@
 
 include("print.jl")
 include("liegroups.jl")
+include("polyspace.jl")

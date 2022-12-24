@@ -1,8 +1,15 @@
-
+# abstract type SO <: SMatrix{3,3, Float64, 9} end
+# abstract type SO{N} <: SMatrix end?
 # *(ᵀ)(x) = transpose(x)
 
 function Id(N)
-    return SMatrix{N, N, Float64, 9} 
+    if typeof(N) == Int64
+        return Matrix(1I, N, N) 
+    elseif typeof(N) == Float64
+        return Matrix(1.0I, convert(Int64,N), convert(Int64,N))
+    else
+        return Matrix(1I, convert(Int64,N), convert(Int64,N)) 
+    end
 end
 
 """
@@ -29,9 +36,7 @@ function skew(x::AbstractVector)
     end
 end
 
-
-(×)(x,y) = skew(x) * y
-(×)(x) = skew(x)
+isskew(A::AbstractMatrix) = A' == -A
 
 """
 The hat operator ∧(⋅): R⁶ → se(3) that maps R⁶ to the Lie algebra of SE(3) -- the rigid-bdy transformation group on R³. 
@@ -42,7 +47,7 @@ Usage:
 
     Y = 
 """
-function hat(x)
+function hat(x::AbstractVector)
     if length(x) == 3
         return skew(x)
     elseif length(x) == 6
@@ -53,7 +58,42 @@ function hat(x)
     end
 end
 
-# struct so{N,V} <: 
-#     θ::
+"""
+The adjoint action ad(⋅): se(3) → se(3) from one algebra onto another. 
+Usage:
+"""
+function ad(x::AbstractVector)
+    @assert length(x) == 6
+    W = skew(x[1:3])
+    U = skew(x[4:6])
+    Z1 = hcat(W,abs.(0.0 * W))
+    Z2 = hcat(U, W)
+    return SMatrix{6,6}(vcat(Z1,Z2))
+end
 
-# end
+"""
+The adjoint action ad(⋅): se(3) → se(3) from one algebra onto another. 
+Usage:
+"""
+function Ad(X::AbstractMatrix)
+    @assert size(X) == (4,4)
+    R = X[1:3,1:3]
+    S = skew(X[1:3,4])
+    Z1 = hcat(R, 0. * R)
+    Z2 = hcat(S * R, R)
+    return SMatrix{6,6}(vcat(Z1,Z2))
+end
+
+"""
+The Adjoint action Ad⁻¹G(⋅): of a group G onto se(3)
+Usage:
+"""
+
+function Ad⁻¹(X::AbstractMatrix)
+    @assert size(X) == (4,4)
+    Rᵀ = (X[1:3,1:3])'
+    Sᵀ = -skew(X[1:3,4])
+    Z1 = hcat(Rᵀ, 0. * Rᵀ)
+    Z2 = hcat(Rᵀ * Sᵀ, Rᵀ)
+    return SMatrix{6,6}(vcat(Z1,Z2))
+end

@@ -23,7 +23,7 @@ mutable struct NeoHookean <: Material     # subtype of Material
 
         # compute Lame constants
         this.λ, this.μ = lameConstants(E=this.E, ν=this.ν)
-        #-----------------------------------------------------------------//
+        #-----------------------------------------------------------------
         this.getModulus = function()
             return this.E
         end
