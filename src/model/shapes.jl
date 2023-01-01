@@ -14,11 +14,13 @@ mutable struct Shapes
     Γ₀  # zero tangent vector
     K₀  # zero curvature-torsion vector
     ξ₀  # zero geom. strain vector
+    g₀  # initial base frame
     θ   # funtional basis (chebyshev 3rd-order by default)
     Bₐ  # matrix of active joints
     Iₐ  # matrix of modal number w.r.t basis {θ}ₖ
 
     # pre-eval matrices
+
     ξₑ  # evaluated strain vector
     θₑ  # evaluated POD matrix
 
@@ -31,6 +33,7 @@ mutable struct Shapes
     Rᵪ  # damping tensor Rᵪ: Ω₀ × [0,T] → se*(3) × se*(3) 
 
     rebuild::Function
+    string::Function
     
     function Shapes(;
         Modes = [0,5,0,0,0,0],
@@ -54,17 +57,45 @@ mutable struct Shapes
         this.Γ₀    = Γ₀
         this.ξ₀    = () -> vcat(this.K₀,this.Γ₀)
         this.L₀    = L₀
+        this.g₀    = SE3(Id(3),zeros(3,1))
 
         this.θ = chebyshev(maximum(this.Modes))
         #------------------------------------------------------------------
         this.rebuild = function()
-            #this.θ = 1
             this.Bₐ, this.Iₐ = buildActiveDofMatrix(this.Modes)
-            this.X  = () -> range(0.0, this.L₀, this.NNode)
-            this.Xₙ = () -> range(0.0, 1.0, this.NNode)
+            this.X  = (NStep) -> range(0.0, this.L₀, NStep)
+            this.Xₙ = (NStep) -> range(0.0, 1.0, NStep)
             this.Δs = this.L₀ / this.NNode 
-            this.θₑ = this.θ(this.Xₙ())
+   
+            # this.θₑ, ~ = gsogpoly(collect(this.θ(this.Xₙ())),
+            #                    collect(this.X()))
             return this
+        end
+        #------------------------------------------------------------------
+        this.string = function(q; ateach::Int64 = 1)
+
+            γ = []
+            q = collect(q)  # ensure it is a column vector
+            Z = (this.g₀[1:3,4], this.g₀[1:3,1:3], zeros(6,this.NDim))
+
+            # set intermediate flow function for forward kinematics
+            F = (Z,s) -> forwardKinematicsCosseratODE!(Z, q, this.θ, this.Bₐ, this.Iₐ, s)
+            S = this.Xₙ(this.NNode)
+
+            @inbounds for kk = 1:this.NNode 
+                # leap-frog
+                #Z₁ = Z ⊕ (this.Δs / 2.0) ⊗ F(Z, S[kk])
+                #Z = Z ⊕ this.Δs ⊗ F(Z₁, S[kk] + this.Δs / 2.0)
+
+                # forward euler
+                Z = Z ⊕ this.Δs ⊗ F(Z, S[kk])
+
+                if kk == 1 || kk == this.NNode || kk % ateach == 0   
+                    push!(γ, Z[1])
+                end
+            end
+
+            return collect(reduce(hcat,γ)')
         end
         #------------------------------------------------------------------
 
@@ -93,18 +124,20 @@ function buildActiveDofMatrix(Modes)
     return SMatrix{6,NDof}(Matrix(I6[:,Xᵢ])), Xₐ
 end
 
-function forwardKinematicsCosseratODE!(Z, shp::Shapes, k::Int64)
-
+function forwardKinematicsCosseratODE!(Z, q, P, B, I, s)
     γₖ, Rₖ, Jₖ = Z
 
-    Adg = Ad(gₖ)
-    Ξ   = shp.Bₐ * diagm(shp.θₑ[k, shp.Iₐ])
-    ξ   = Ξ * q + ξₖ
-    dξ  = Ξ * dq
+    Ξ  = B * diagm(P(s)[I]) 
+    ξ  = Ξ * q 
+    ξ[4] += 1.0
 
-    dγ = Rₖ * ξ[1:3]
-    dR = Rₖ * skew(ξ[4:6])
-    dJ = Adg * Ξ;
+    # matrix differential equation for FK
+    dγ = Rₖ * ξ[4:6]
+    dR = Rₖ * skew(ξ[1:3])
+    dJ = Ad( SE3(Rₖ, γₖ) ) * Ξ;
 
-    Z = (dγ, dR, dJ)
+    # compose Tuple of state update
+    return Z = (dγ, dR, dJ) 
+    #return Z
 end
+

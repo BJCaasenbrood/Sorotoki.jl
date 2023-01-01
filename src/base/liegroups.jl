@@ -13,6 +13,16 @@ function Id(N)
 end
 
 """
+Usage:
+"""
+function SE3(R::AbstractMatrix, γ::AbstractVecOrMat)
+    @assert size(R) == (3,3)
+    Z1 = hcat(R, γ)
+    Z2 = [0. 0. 0. 1.]
+    return SMatrix{4,4}(vcat(Z1,Z2))
+end
+
+"""
 The skewsymmetric operator ×(⋅): Rⁿ → so(n) that maps Rⁿ to the Lie algebra of SO(n) with n = {1,3}. Given A = skew(X), a property is that A + Aᵀ = 0. Also, any cross product between two vectors X,Y ∈ R³ can written as X × X = skew(X) * Y. 
 
 Examples
@@ -79,7 +89,7 @@ function Ad(X::AbstractMatrix)
     @assert size(X) == (4,4)
     R = X[1:3,1:3]
     S = skew(X[1:3,4])
-    Z1 = hcat(R, 0. * R)
+    Z1 = hcat(R, abs.(0. * R))
     Z2 = hcat(S * R, R)
     return SMatrix{6,6}(vcat(Z1,Z2))
 end
@@ -93,7 +103,7 @@ function Ad⁻¹(X::AbstractMatrix)
     @assert size(X) == (4,4)
     Rᵀ = (X[1:3,1:3])'
     Sᵀ = -skew(X[1:3,4])
-    Z1 = hcat(Rᵀ, 0. * Rᵀ)
+    Z1 = hcat(Rᵀ, abs.(0. * Rᵀ))
     Z2 = hcat(Rᵀ * Sᵀ, Rᵀ)
     return SMatrix{6,6}(vcat(Z1,Z2))
 end

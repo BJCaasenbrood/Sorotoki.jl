@@ -1,10 +1,22 @@
 module Sorotoki
+
+    using LinearAlgebra
+    using StaticArrays
+    #using SparseArrays
+    #using ForwardDiff
+    using Base
+
     # Sorotoki base packages
     include("packages.jl")
     include("./base/base.jl")
-    export Id, skew, iskew, hat
-    export ad, Ad, Ad⁻¹
+    include("./base/solver.jl")
+    include("./base/polyspace.jl")
     export chebyshev
+    export Id, skew, iskew, hat, SE3
+    export ad, Ad, Ad⁻¹
+    
+    include("./base/tuplemath.jl")
+    export ⊗, ⊕
 
     # Sorotoki packages for beam shapes
     include("./model/shapes.jl")
