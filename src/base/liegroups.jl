@@ -2,6 +2,16 @@
 # abstract type SO{N} <: SMatrix end?
 # *(ᵀ)(x) = transpose(x)
 
+"""
+Id(N) generates the identity matrix of size N.
+
+Examples
+≡≡≡≡≡≡≡≡≡≡
+
+  Id(2)   # 2 × 2 identity of Int64
+  Id(2.0) # 2 × 2 identity of Float64
+"""
+
 function Id(N)
     if typeof(N) == Int64
         return Matrix(1I, N, N) 
@@ -50,21 +60,22 @@ isskew(A::AbstractMatrix) = A' == -A
 
 """
 The hat operator ∧(⋅): R⁶ → se(3) that maps R⁶ to the Lie algebra of SE(3) -- the rigid-bdy transformation group on R³. 
-Usage:
 
-    X = [0,0,0,0,1,0]       % vector in R⁶
+Examples
+≡≡≡≡≡≡≡≡≡≡
+    X = [0,0,0,0,1,0]  % vector in R⁶
     Y = hat(X)
 
-    Y = 
+    Y = Y * X
 """
 function hat(x::AbstractVector)
     if length(x) == 3
-        return skew(x)
+      return skew(x)
     elseif length(x) == 6
-        return @SMatrix[0.0 -x[3] x[2] x[4];
-                        x[3] 0.0 -x[1] x[5];
-                        -x[2] x[1] .0 x[6];
-                        0.0 0.0 0.0 0.0]
+      return @SMatrix[0.0 -x[3] x[2] x[4];
+                      x[3] 0.0 -x[1] x[5];
+                      -x[2] x[1] .0 x[6];
+                      0.0 0.0 0.0 0.0]
     end
 end
 

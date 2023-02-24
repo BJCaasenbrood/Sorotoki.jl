@@ -7,7 +7,7 @@ module Sorotoki
     using Base
 
     # Sorotoki base packages
-    include("packages.jl")
+    #include("packages.jl")
     include("./base/base.jl")
     include("./base/solver.jl")
     include("./base/polyspace.jl")
@@ -20,7 +20,7 @@ module Sorotoki
 
     # Sorotoki packages for beam shapes
     include("./model/shapes.jl")
-    export Shapes, forwardKinematicsCosseratODE
+    export Shapes, forwardKinematicsCosseratODE, forwardDynamicsCosseratODE
 
     # Sorotoki packages for (hyper-elastic) materials
     include("./material/material.jl")

@@ -5,7 +5,7 @@ using LinearAlgebra
 using Test
 
 ## tests for Lie groups functions
-#@testset "liegroup.jl" begin
+@testset "liegroup.jl" begin
     p₁ = SVector(1,2,3)
     p₂ = SVector(3,2,1)
     S = skew(p₁)
@@ -20,7 +20,7 @@ using Test
     @test det(Ξ) == 0.0
     adₓ = ad(η)
     @test adₓ * η == @SVector zeros(6)
-#end
+end
 
 ## testset for Shapes
 #@testset "shapes.jl" begin

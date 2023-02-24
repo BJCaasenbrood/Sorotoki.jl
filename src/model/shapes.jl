@@ -20,7 +20,6 @@ mutable struct Shapes
     Iₐ  # matrix of modal number w.r.t basis {θ}ₖ
 
     # pre-eval matrices
-
     ξₑ  # evaluated strain vector
     θₑ  # evaluated POD matrix
 
@@ -34,6 +33,7 @@ mutable struct Shapes
 
     rebuild::Function
     string::Function
+    assemble::Function
     
     function Shapes(;
         Modes = [0,5,0,0,0,0],
@@ -74,28 +74,32 @@ mutable struct Shapes
         #------------------------------------------------------------------
         this.string = function(q; ateach::Int64 = 1)
 
-            γ = []
+            γ = Matrix{Float64}(undef,this.NNode,3)
+            #γ = []
             q = collect(q)  # ensure it is a column vector
             Z = (this.g₀[1:3,4], this.g₀[1:3,1:3], zeros(6,this.NDim))
+            Q = (q, q)
 
             # set intermediate flow function for forward kinematics
-            F = (Z,s) -> forwardKinematicsCosseratODE!(Z, q, this.θ, this.Bₐ, this.Iₐ, s)
+            F = (Z,s) -> forwardKinematicsCosseratODE!(Z, Q, s, this.θ, this.Bₐ, this.Iₐ)
             S = this.Xₙ(this.NNode)
 
-            @inbounds for kk = 1:this.NNode 
-                # leap-frog
-                #Z₁ = Z ⊕ (this.Δs / 2.0) ⊗ F(Z, S[kk])
-                #Z = Z ⊕ this.Δs ⊗ F(Z₁, S[kk] + this.Δs / 2.0)
+            @inbounds for i = 1:this.NNode 
+                # leap-frog on tuple object
+                Z_ = Z ⊕ (this.Δs ./ 2.0) ⊗ F(Z, S[i])
+                Z  = Z ⊕ this.Δs ⊗ F(Z_, S[i] + this.Δs ./ 2.0)
 
-                # forward euler
-                Z = Z ⊕ this.Δs ⊗ F(Z, S[kk])
+                # forward euler on tuple object
+                #Z = Z ⊕ this.Δs ⊗ F(Z, S[kk])
 
-                if kk == 1 || kk == this.NNode || kk % ateach == 0   
-                    push!(γ, Z[1])
+                if i == 1 || i == this.NNode || i % ateach == 0   
+                    #push!(γ, Z[1])
+                    γ[i,:] = Z[1]
                 end
             end
 
-            return collect(reduce(hcat,γ)')
+            #return collect(reduce(hcat,γ)')
+            return γ
         end
         #------------------------------------------------------------------
 
@@ -120,14 +124,15 @@ function buildActiveDofMatrix(Modes)
         end
     end
 
-    #print(Xₐ)
     return SMatrix{6,NDof}(Matrix(I6[:,Xᵢ])), Xₐ
 end
 
-function forwardKinematicsCosseratODE!(Z, q, P, B, I, s)
-    γₖ, Rₖ, Jₖ = Z
+function forwardKinematicsCosseratODE!(Z, Q, s, PolyBasis, activeDof, structDof)
+    γₖ, Rₖ = Z
+    q, ~  = Q
 
-    Ξ  = B * diagm(P(s)[I]) 
+    # compute the geometric strain vector
+    Ξ  = activeDof * diagm(PolyBasis(s)[structDof]) 
     ξ  = Ξ * q 
     ξ[4] += 1.0
 
@@ -138,6 +143,47 @@ function forwardKinematicsCosseratODE!(Z, q, P, B, I, s)
 
     # compose Tuple of state update
     return Z = (dγ, dR, dJ) 
-    #return Z
 end
 
+function forwardDynamicsCosseratODE!(Z, Q, s, PolyBasis, activeDof, structDof, BeamTensor)
+    
+    q, dq = Q
+    γₖ, Rₖ, Jₖ, dJdtₖ = Z 
+    Mtt, Ktt = BeamTensor
+
+    Ξ = activeDof * diagm(PolyBasis(s)[structDof]) 
+    ξ = Ξ * q
+    ξ[4] =+ 1.0
+
+    A  = Ad( SE3(Rₖ, γₖ) )
+    Ai = Ad⁻¹( SE3(Rₖ, γₖ) )
+
+    # matrix differential equation for FK
+    dγ   = Rₖ * ξ[4:6]
+    dR   = Rₖ * skew(ξ[1:3])
+
+    Jg    = Ai * Jₖ
+    dJgdt = Ai * dJdtₖ
+    η     = Jg * dq 
+    adη   = ad(η)
+    #adξ   = ad(ξ)
+
+    dJ   = A * Ξ
+    dJdt = A * adη * Ξ
+
+    # body acceleration vector
+    ag = [0,0,0,0,0,0]
+
+    # matrix differential equation for EL
+    dM =  Jg' * Mtt * Jg
+    dC =  Jg' * ((Mtt * adη - adη' * Mtt) * Jg + Mtt * dJgdt)
+    dG = -Jg' * (Ai * Mtt * ag)
+
+    # tensor or energy integration
+    dK  = (Ξ)' * Ktt * (Ξ) 
+    dUe =  0.5 .* η' * Mtt * η
+    dUg = Mtt[4,4] * γₖ * ag[4:6]
+
+    # compose Tuple of state matrices update
+    return Z = (dγ, dR, dJ, dJdt, dM, dC, dG) 
+end
